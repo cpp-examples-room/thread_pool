@@ -41,8 +41,7 @@ namespace tds {
             impl->call();
         }
 
-        function_wrapper() = default;
-
+        function_wrapper() = delete;
         function_wrapper(function_wrapper&& rhs): impl(std::move(rhs.impl)) {}
 
         function_wrapper& operator=(function_wrapper&& rhs) {
@@ -80,15 +79,13 @@ namespace tds {
         }
 
         template <typename F, typename... Args>
-        std::future<typename std::result_of<F(Args...)>::type>
-        submit(F&& f, Args&&... args) {
-            using result_t = typename std::result_of<F(Args...)>::type;
-            std::packaged_task<result_t()> task(
+        auto submit(F&& f, Args&&... args) {
+            std::packaged_task<typename std::result_of<F(Args...)>::type()> task(
                 std::bind(std::forward<F>(f), std::forward<Args...>(args)...));
-            std::future<result_t> result(task.get_future());
+            auto future = task.get_future();
             std::lock_guard<std::mutex> lock_g(mutex_);
             work_queue_.push_back(std::move(task));
-            return result;
+            return future;
         }
 
     private:
